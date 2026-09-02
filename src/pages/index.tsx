@@ -8,7 +8,7 @@ import TestPortal from "../portal/portal";
 import { CursorClickIcon } from "@heroicons/react/solid";
 import Head from "next/head";
 
-const cutoff = Date.parse("2025-05-25T12:10:00Z");
+const cutoff = Date.parse("2026-09-20T07:00:00Z");
 
 const Home: NextPage = () => {
   const { data: session } = useSession();
