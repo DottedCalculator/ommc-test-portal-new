@@ -84,7 +84,7 @@ const Home: NextPage = () => {
             <h5 className="z-10 text-center text-3xl font-extrabold sm:text-4xl md:text-5xl lg:mb-8 lg:text-6xl xl:text-7xl">
               Welcome to{" "}
               <span className="block rounded-3xl bg-red-600 px-3 py-1 text-white dark:bg-red-700 sm:inline">
-                OMMC Year 5
+                OMMC Year 6
               </span>
             </h5>
             <Link
@@ -94,7 +94,7 @@ const Home: NextPage = () => {
               <span className="mr-2 block rounded-3xl bg-yellow-500 px-3 py-1 text-gray-900 sm:inline">
                 ATTENTION!
               </span>{" "}
-              The main round of OMMC 2025 is over. Stay tuned for the final
+              The main round of OMMC 2026 is over. Stay tuned for the final
               round.
             </Link>
           </div>
