@@ -423,7 +423,7 @@ const Test = () => {
           <h1 className="mb-6 text-xl font-bold md:text-2xl lg:mb-8 lg:text-3xl xl:text-4xl 2xl:text-[2.8rem]">
             Welcome to the{" "}
             <span className="rounded-xl bg-red-600 px-2 py-0.5 text-white xl:rounded-2xl xl:px-3">
-              OMMC Year 5
+              OMMC Year 6
             </span>{" "}
             Test!
           </h1>
