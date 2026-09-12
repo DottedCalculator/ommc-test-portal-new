@@ -548,7 +548,7 @@ const Test = () => {
                       <input
                         className="focus:shadow-outline w-full appearance-none rounded-lg border border-gray-400 bg-gray-200 py-2 px-3 leading-tight text-gray-800 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                         type="text"
-                        placeholder="Add a team member"
+                        placeholder="Name"
                         value={newMember}
                         onChange={(event) => setNewMember(event.target.value)}
                         maxLength={20}
@@ -592,7 +592,7 @@ const Test = () => {
                       <input
                         className="focus:shadow-outline w-full appearance-none rounded-lg border border-gray-400 bg-gray-200 py-2 px-3 leading-tight text-gray-800 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                         type="text"
-                        placeholder="School Name"
+                        placeholder="School"
                         value={school}
                         onChange={(event) => setSchool(event.target.value)}
                         maxLength={30}
