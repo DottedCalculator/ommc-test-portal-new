@@ -9,14 +9,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const SUBMISSION_DEADLINE = Date.parse("2026-09-20T07:00:00Z");
-
-if (Date.now() >= SUBMISSION_DEADLINE) {
-  return res.status(403).json({
-    message: "Submissions are closed",
-  });
-}
-
 
 // Preserve the original client's JSON-encoded answer strings for the existing grader.
 // Only explicitly selected fields are persisted; supplied identity fields are ignored.
@@ -60,6 +52,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   setNoStore(res);
   if (!allowMethod(req, res, "POST")) return;
   try {
+    const SUBMISSION_DEADLINE = Date.parse("2026-09-20T07:00:00Z");
+
+    if (Date.now() >= SUBMISSION_DEADLINE) {
+      return res.status(403).json({
+        message: "Submissions are closed",
+      });
+    }
     const session = await requireUser(req, res);
     if (!session) return;
     if (!allowSameOriginJson(req, res)) return;
