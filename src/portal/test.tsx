@@ -504,7 +504,7 @@ const Test = () => {
                   </div>
                   <p className="text-xs font-normal italic dark:text-gray-500 lg:text-sm">
                     {
-                      'If you wish to remain anonymous, put "anonymous" in the boxes. You must click the blue button to add the team members before starting the test.'
+                      'If you wish to remain anonymous, put "anonymous" in the boxes. You must click the blue button to add your team members before starting the test.'
                     }
                   </p>
                 </label>
