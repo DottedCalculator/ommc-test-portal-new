@@ -12,6 +12,7 @@ const ADMIN_EMAILS = new Set([
   "charleszhang1729@gmail.com",
   "abwang07@gmail.com",
   "suyalpranshu@gmail.com",
+  "ommcofficial@gmail.com"
 ]);
 
 export function isAdminEmail(email?: string | null): boolean {
