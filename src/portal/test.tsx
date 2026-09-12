@@ -489,7 +489,7 @@ const Test = () => {
                   placeholder="Enter your team name"
                   required
                   onChange={(event) => setTeamName(event.target.value)}
-                  maxLength={30}
+                  maxLength={50}
                   value={teamName}
                 />
               </div>
@@ -551,7 +551,7 @@ const Test = () => {
                         placeholder="Name"
                         value={newMember}
                         onChange={(event) => setNewMember(event.target.value)}
-                        maxLength={20}
+                        maxLength={40}
                         required={teamMembers.length < 1}
                       />
                       <input
