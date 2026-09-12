@@ -1,79 +1,23 @@
-//This file is an API route that fetches all the emails from
-//the Firestore database and returns them as a string.
-//This is for easily emailing all participants of the test.
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import firestore from "../../firebase";
+import { allowMethod, requireUser, setNoStore } from "~/server/security";
 
-type Data =
-  | {
-      data: unknown;
-    }
-  | {
-      message: string;
-    };
+type ApiResponse = { Test_Emails: string } | { message: string };
 
-type SubmissionData = {
-  teamMember: string;
-  teamName: string;
-  started: string;
-  q1: string;
-  q2: string;
-  q3: string;
-  q4: string;
-  q5: string;
-  q6: string;
-  q7: string;
-  q8: string;
-  q9: string;
-  q10: string;
-  q11: string;
-  q12: string;
-  q13: string;
-  q14: string;
-  q15: string;
-  q16: string;
-  q17: string;
-  q18: string;
-  q19: string;
-  q20: string;
-  q21: string;
-  q22: string;
-  q23: string;
-  q24: string;
-  q25: string;
-  username: string;
-  email: string;
-  image: string;
-};
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<Data | Record<string, string>>
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse>) {
+  setNoStore(res);
+  if (!allowMethod(req, res, "GET")) return;
   try {
-    // Create a reference to the user's collection
-    const userCollectionRef = firestore.collection("users");
-
-    // Get all documents in the collection
-    const snapshot = await userCollectionRef.get();
-
-    // Create an object to hold the user data
-    const userData: Record<string, string> = {};
-
-    // Concatenate all emails into a single string
-    let emailsString = "";
+    const session = await requireUser(req, res, true);
+    if (!session) return;
+    const snapshot = await firestore.collection("users").get();
+    const emails = new Set<string>();
     snapshot.forEach((doc) => {
-      const data = doc.data() as SubmissionData;
-      emailsString += data.email + " ";
+      const data = doc.data();
+      if (typeof data.email === "string" && data.email.trim()) emails.add(data.email.trim());
     });
-
-    // Assign the emails string to the key "whatever" in the userData object
-    userData["Test_Emails"] = emailsString.trim(); // Remove trailing space
-
-    return res.status(200).json(userData); // return the userData object
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Failed to get data" });
+    return res.status(200).json({ Test_Emails: [...emails].join(" ") });
+  } catch {
+    return res.status(500).json({ message: "Failed to get emails" });
   }
 }
