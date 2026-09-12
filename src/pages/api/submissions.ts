@@ -1,79 +1,45 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import firestore from "../../firebase";
+import { allowMethod, requireUser, setNoStore, submissionDocId } from "~/server/security";
 
-type Data =
-  | {
-      data: unknown;
-    }
-  | {
-      message: string;
-    };
+type Submission = Record<string, string>;
+type ApiResponse = { message: string } | Submission[] | Record<string, Submission[]>;
 
-type SubmissionData = {
-  teamMember: string;
-  teamName: string;
-  started: string;
-  q1: string;
-  q2: string;
-  q3: string;
-  q4: string;
-  q5: string;
-  q6: string;
-  q7: string;
-  q8: string;
-  q9: string;
-  q10: string;
-  q11: string;
-  q12: string;
-  q13: string;
-  q14: string;
-  q15: string;
-  q16: string;
-  q17: string;
-  q18: string;
-  q19: string;
-  q20: string;
-  q21: string;
-  q22: string;
-  q23: string;
-  q24: string;
-  q25: string;
-  username: string;
-  email: string;
-  image: string;
-};
+function publicSubmission(data: Record<string, unknown>): Submission {
+  const result: Submission = {};
+  for (const key of ["username", "email", "image", "teamName", "teamMembers", "started",
+    ...Array.from({ length: 25 }, (_, i) => `q${i + 1}`)]) {
+    const value = data[key];
+    result[key] = typeof value === "string" ? value : key === "teamMembers" ? "[]" : "";
+  }
+  return result;
+}
 
-type UserData = {
-  [key: string]: SubmissionData[];
-};
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<Data | UserData>
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse>) {
+  setNoStore(res);
+  if (!allowMethod(req, res, "GET")) return;
+  const scope = req.query.scope ?? "all";
+  if (scope !== "mine" && scope !== "all") {
+    return res.status(400).json({ message: "Invalid submissions scope" });
+  }
   try {
-    // Create a reference to the user's collection
-    const userCollectionRef = firestore.collection("data");
-
-    // Get all documents in the collection
-    const snapshot = await userCollectionRef.get();
-
-    // Create an object to hold the user data
-    const userData: UserData = {};
-
-    // Loop through each document and add its data to the userData object
-    snapshot.forEach((doc) => {
-      const user = doc.id;
-      const data = doc.data() as SubmissionData;
-      if (!userData[user]) {
-        userData[user] = [];
-      }
-      userData[user]?.push(data);
-    });
-
-    return res.status(200).json(userData); // return the userData object
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Failed to get data" });
+    const session = await requireUser(req, res, scope === "all");
+    if (!session) return;
+    const collection = firestore.collection("data");
+    if (scope === "mine") {
+      const doc = await collection.doc(submissionDocId(session.user.id)).get();
+      const data = doc.data();
+      // Legacy email/name fields were supplied by clients and are not proof of ownership.
+      if (!data || data.ownerId !== session.user.id) return res.status(200).json([]);
+      return res.status(200).json([publicSubmission(data)]);
+    }
+    const snapshot = await collection.get();
+    // fromEntries safely handles legacy document IDs such as "__proto__".
+    const result = Object.fromEntries(snapshot.docs.map((doc) =>
+      [doc.id, [publicSubmission(doc.data())]]
+    ));
+    return res.status(200).json(result);
+  } catch {
+    return res.status(500).json({ message: "Failed to get submissions" });
   }
 }
