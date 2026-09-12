@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { XIcon, UploadIcon } from "@heroicons/react/solid";
 
 interface Props {
@@ -16,7 +16,8 @@ const Modal: React.FC<Props> = ({
   teamName,
   showConfetti,
 }) => {
-  const { data: session } = useSession();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   //Get all stored states from local storage
   const teamMember = localStorage.getItem("TEAM_MEMBER");
   const started = localStorage.getItem("STARTED");
@@ -47,10 +48,11 @@ const Modal: React.FC<Props> = ({
   const q25 = localStorage.getItem("Q25");
 
   const submissionHandler = async () => {
-    setShowModal(false);
-    showConfetti(true);
-    //Submit to database
-    await fetch("/api/submit", {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+    const res = await fetch("/api/submit", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -84,15 +86,20 @@ const Modal: React.FC<Props> = ({
         q23: q23,
         q24: q24,
         q25: q25,
-        username: session?.user.name || "",
-        email: session?.user.email || "",
-        image: session?.user.image || "",
       }),
-    }).then((res) => res.json());
-
-    setTimeout(() => {
-      showConfetti(false);
-    }, 2000);
+    });
+    if (!res.ok) {
+      setSubmitError(`Submission was not saved (HTTP ${res.status}). Your answers remain on this device. Check your sign-in and try again.`);
+      return;
+    }
+    setShowModal(false);
+    showConfetti(true);
+    setTimeout(() => showConfetti(false), 2000);
+    } catch {
+      setSubmitError("Could not confirm the submission. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   type Member = {
@@ -122,6 +129,7 @@ const Modal: React.FC<Props> = ({
                 {/*body*/}
                 <div className="relative flex-auto p-6 py-4">
                   <div className="my-3 text-lg leading-relaxed text-slate-500 duration-150 dark:text-slate-400">
+                    {submitError && <p role="alert">{submitError}</p>}
                     <p> You will be able to submit another set of answers.</p>
                     <p className="mt-2 text-base">
                       Submitting for Team {teamName}:
@@ -153,7 +161,8 @@ const Modal: React.FC<Props> = ({
                   <button
                     className="mr-1 mb-1 flex flex-row items-center rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold uppercase text-white shadow outline-none transition-all duration-150 ease-linear hover:bg-emerald-600 hover:shadow-lg focus:outline-none active:bg-emerald-600"
                     type="submit"
-                    onClick={() => submissionHandler()}
+                    disabled={submitting}
+                    onClick={() => void submissionHandler()}
                   >
                     <UploadIcon className="mr-2 h-5 w-5 " /> Submit
                   </button>
