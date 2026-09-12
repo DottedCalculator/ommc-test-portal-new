@@ -9,6 +9,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const SUBMISSION_DEADLINE = Date.parse("2026-09-20T07:00:00Z");
+
+if (Date.now() >= SUBMISSION_DEADLINE) {
+  return res.status(403).json({
+    message: "Submissions are closed",
+  });
+}
+
+
 // Preserve the original client's JSON-encoded answer strings for the existing grader.
 // Only explicitly selected fields are persisted; supplied identity fields are ignored.
 function validateSubmission(input: unknown): Record<string, string> | null {
