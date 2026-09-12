@@ -51,25 +51,53 @@ interface Team {
 type TeamsData = Record<string, Team[]>;
 
 const SubmissionsTable = () => {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const [allowed, setAllowed] = useState(false);
   const [submissions, setSubmissions] = useState<TeamsData>({});
   const [emails, setEmails] = useState<string>("");
 
   useEffect(() => {
-    const fetchSubmissions = async () => {
-      const res = await fetch("/api/submissions");
-      const data: TeamsData = await res.json();
-      setSubmissions(data);
+    setAllowed(false);
+    setSubmissions({});
+    setEmails("");
+    if (status !== "authenticated") return;
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const [submissionsRes, emailsRes] = await Promise.all([
+          fetch("/api/submissions?scope=all", { signal: controller.signal, cache: "no-store" }),
+          fetch("/api/emails", { signal: controller.signal, cache: "no-store" }),
+        ]);
+        if (!submissionsRes.ok || !emailsRes.ok) return;
+        const data: unknown = await submissionsRes.json();
+        const emailData: unknown = await emailsRes.json();
+        if (!data || typeof data !== "object" || Array.isArray(data) ||
+            !Object.values(data).every(Array.isArray)) return;
+        if (!emailData || typeof emailData !== "object" || !("Test_Emails" in emailData) ||
+            typeof emailData.Test_Emails !== "string") return;
+        if (controller.signal.aborted) return;
+        setSubmissions(data as TeamsData);
+        setEmails(emailData.Test_Emails);
+        setAllowed(true);
+      } catch {
+        // Do not render privileged data after a failed or cancelled request.
+      }
     };
-    void fetchSubmissions();
+    void load();
+    return () => controller.abort();
+  }, [status, session?.user?.id]);
 
-    const fetchEmails = async () => {
-      const res = await fetch("/api/emails");
-      const data = await res.json();
-      setEmails(data.Test_Emails);
-    };
-    void fetchEmails();
-  }, []);
+  const parseMembers = (value: string): TeamMember[] => {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (!Array.isArray(parsed)) return [];
+      return (parsed as unknown[]).filter((member): member is TeamMember => {
+        if (!member || typeof member !== "object") return false;
+        const record = member as Record<string, unknown>;
+        return ["name", "age", "grade", "school"].every((key) => typeof record[key] === "string");
+      });
+    } catch { return []; }
+  };
 
   const totalCorrect = (
     q1: string,
@@ -194,7 +222,7 @@ const SubmissionsTable = () => {
       return (
         total +
         teams.reduce((teamTotal, team) => {
-          const members: TeamMember[] = JSON.parse(team.teamMembers);
+          const members: TeamMember[] = parseMembers(team.teamMembers);
           return teamTotal + members.length;
         }, 0)
       );
@@ -203,7 +231,7 @@ const SubmissionsTable = () => {
   );
 
   const getNumberOfUserAccounts = (emails: string): number => {
-    return emails.split(/\s+/).length;
+    return emails.trim() ? emails.trim().split(/\s+/).length : 0;
   };
 
   const getAllEmails = (emails: string): string => {
@@ -212,12 +240,7 @@ const SubmissionsTable = () => {
 
   return (
     <>
-      {session?.user.email === "23evanchang@gmail.com" ||
-      session?.user.email === "kk23907751@gmail.com" ||
-      session?.user.email === "billchanghaofei@gmail.com" ||
-      session?.user.email === "charleszhang1729@gmail.com" ||
-      session?.user.email === "abwang07@gmail.com" ||
-      session?.user.email === "suyalpranshu@gmail.com" ? (
+      {allowed ? (
         <>
           <Head>
             <title>User Submissions</title>
@@ -282,9 +305,7 @@ const SubmissionsTable = () => {
                 <tbody className="divide-y divide-gray-200  dark:divide-gray-700 ">
                   {Object.entries(submissions).map(([user, teams]) =>
                     teams.map((team) => {
-                      const members: TeamMember[] = JSON.parse(
-                        team.teamMembers || "[]"
-                      );
+                      const members: TeamMember[] = parseMembers(team.teamMembers || "[]");
                       return (
                         <tr
                           key={team.username}
