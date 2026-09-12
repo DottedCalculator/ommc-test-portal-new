@@ -64,7 +64,7 @@ interface Submission {
 }
 
 const Test = () => {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [started, setStarted] = useLocalStorage("STARTED", false);
   const [teamName, setTeamName] = useLocalStorage("TEAM_NAME", "");
   const [teamMembers, setTeamMembers] = useLocalStorage<TeamMember[]>(
@@ -107,13 +107,26 @@ const Test = () => {
   const [current, setCurrent] = useState<Submission[]>([]);
 
   useEffect(() => {
+    setCurrent([]);
+    if (status !== "authenticated") return;
+    const controller = new AbortController();
     const fetchSubmissions = async () => {
-      const res = await fetch("/api/submissions");
-      const data = await res.json();
-      setCurrent(data);
+      try {
+        const res = await fetch("/api/submissions?scope=mine", {
+          signal: controller.signal, cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data: unknown = await res.json();
+        if (!controller.signal.aborted) {
+          setCurrent(Array.isArray(data) ? (data as Submission[]) : []);
+        }
+      } catch {
+        // Preserve locally saved answers when offline or a session has expired.
+      }
     };
     void fetchSubmissions();
-  }, []);
+    return () => controller.abort();
+  }, [status, session?.user?.id]);
 
   useEffect(() => {
     if (current.length > 0) {
