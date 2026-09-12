@@ -1,101 +1,78 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import type { NextApiRequest, NextApiResponse } from "next";
-// import { getSession } from "next-auth/react";
 import firestore from "../../firebase";
+import { allowMethod, allowSameOriginJson, requireUser, setNoStore, submissionDocId } from "~/server/security";
 
-type Data =
-  | {
-      data: unknown;
+export const config = { api: { bodyParser: { sizeLimit: "32kb" } } };
+type ApiResponse = { message: string };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Preserve the original client's JSON-encoded answer strings for the existing grader.
+// Only explicitly selected fields are persisted; supplied identity fields are ignored.
+function validateSubmission(input: unknown): Record<string, string> | null {
+  if (!isRecord(input)) return null;
+  if (typeof input.teamName !== "string" || !input.teamName.trim() || input.teamName.length > 200) return null;
+  let members: unknown = input.teamMember;
+  if (typeof members === "string") {
+    if (members.length > 8000) return null;
+    try { members = JSON.parse(members) as unknown; } catch { return null; }
+  }
+  if (!Array.isArray(members) || members.length < 1 || members.length > 4) return null;
+  const cleanedMembers: Record<string, string>[] = [];
+  for (const member of members as unknown[]) {
+    if (!isRecord(member)) return null;
+    const cleaned: Record<string, string> = {};
+    for (const key of ["name", "age", "grade", "school"]) {
+      const value = member[key];
+      if (typeof value !== "string" || !value.trim() || value.length > 300) return null;
+      cleaned[key] = value;
     }
-  | {
-      message: string;
-    };
+    cleanedMembers.push(cleaned);
+  }
+  const started = input.started;
+  if (started !== true && started !== false && started !== "true" && started !== "false") return null;
+  const data: Record<string, string> = {
+    teamName: input.teamName,
+    teamMembers: JSON.stringify(cleanedMembers),
+    started: String(started),
+  };
+  for (let i = 1; i <= 25; i++) {
+    const key = `q${i}`;
+    const value = input[key];
+    if (value != null && (typeof value !== "string" || value.length > 200)) return null;
+    data[key] = typeof value === "string" ? value : "";
+  }
+  return data;
+}
 
-type SubmissionData = {
-  teamMember: string;
-  teamName: string;
-  started: string;
-  q1: string;
-  q2: string;
-  q3: string;
-  q4: string;
-  q5: string;
-  q6: string;
-  q7: string;
-  q8: string;
-  q9: string;
-  q10: string;
-  q11: string;
-  q12: string;
-  q13: string;
-  q14: string;
-  q15: string;
-  q16: string;
-  q17: string;
-  q18: string;
-  q19: string;
-  q20: string;
-  q21: string;
-  q22: string;
-  q23: string;
-  q24: string;
-  q25: string;
-  username: string;
-  email: string;
-  image: string;
-};
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<Data>
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse>) {
+  setNoStore(res);
+  if (!allowMethod(req, res, "POST")) return;
   try {
-    const data: SubmissionData = {
-      ...req.body,
-    };
-
-    // Create a reference to the user's document
-    const userDocRef = firestore.collection("data").doc(data.username);
-
-    // Add the new submission to the user's document
-    const userDocData = {
-      username: data.username,
-      teamName: data.teamName,
-      started: data.started,
-      q1: data.q1,
-      q2: data.q2,
-      q3: data.q3,
-      q4: data.q4,
-      q5: data.q5,
-      q6: data.q6,
-      q7: data.q7,
-      q8: data.q8,
-      q9: data.q9,
-      q10: data.q10,
-      q11: data.q11,
-      q12: data.q12,
-      q13: data.q13,
-      q14: data.q14,
-      q15: data.q15,
-      q16: data.q16,
-      q17: data.q17,
-      q18: data.q18,
-      q19: data.q19,
-      q20: data.q20,
-      q21: data.q21,
-      q22: data.q22,
-      q23: data.q23,
-      q24: data.q24,
-      q25: data.q25,
-      teamMembers: data.teamMember,
-      email: data.email,
-      image: data.image,
-    };
-    await userDocRef.set(userDocData, { merge: true });
-
+    const session = await requireUser(req, res);
+    if (!session) return;
+    if (!allowSameOriginJson(req, res)) return;
+    const data = validateSubmission(req.body);
+    if (!data) return res.status(400).json({ message: "Invalid submission data" });
+    const ref = firestore.collection("data").doc(submissionDocId(session.user.id));
+    const written = await firestore.runTransaction(async (transaction) => {
+      const existing = await transaction.get(ref);
+      // Do not claim or overwrite an old record just because its name/email matches.
+      if (existing.exists && existing.data()?.ownerId !== session.user.id) return false;
+      transaction.set(ref, {
+        ...data,
+        ownerId: session.user.id,
+        username: session.user.name ?? session.user.email ?? "",
+        email: session.user.email ?? "",
+        image: session.user.image ?? "",
+      });
+      return true;
+    });
+    if (!written) return res.status(409).json({ message: "Record ownership requires administrator review" });
     return res.status(200).json({ message: "Data submitted successfully" });
-  } catch (error) {
-    console.error(error);
+  } catch {
     return res.status(500).json({ message: "Failed to submit data" });
   }
 }
