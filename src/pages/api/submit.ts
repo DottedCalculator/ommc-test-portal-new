@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   setNoStore(res);
   if (!allowMethod(req, res, "POST")) return;
   try {
-    const SUBMISSION_DEADLINE = Date.parse("2026-09-20T07:00:00Z");
+    const SUBMISSION_DEADLINE = Date.parse("2025-09-20T07:00:00Z");
 
     if (Date.now() >= SUBMISSION_DEADLINE) {
       return res.status(403).json({
